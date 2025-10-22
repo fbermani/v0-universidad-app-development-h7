@@ -2,7 +2,17 @@
 
 import type React from "react"
 import { createContext, useContext, useReducer, useEffect, useCallback } from "react"
-import type { User, Resident, Room, Reservation, Payment, Expense, MaintenanceTask, Configuration } from "../types"
+import type {
+  User,
+  Resident,
+  Room,
+  Reservation,
+  Payment,
+  Expense,
+  MaintenanceTask,
+  Configuration,
+  HistoricalData,
+} from "../types"
 import { supabase, isDemoMode } from "../lib/supabase"
 import {
   mockRooms,
@@ -12,6 +22,7 @@ import {
   mockExpenses,
   mockMaintenanceTasks,
   mockConfiguration,
+  mockHistoricalData,
 } from "../data/mockData"
 
 interface AppState {
@@ -24,6 +35,7 @@ interface AppState {
   maintenanceTasks: MaintenanceTask[]
   configuration: Configuration
   pettyCash: number
+  historicalData: HistoricalData[]
   selectedResidentIdForDetails: string | null
   isLoading: boolean
   isConnected: boolean
@@ -58,6 +70,12 @@ type AppAction =
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_CONNECTION_STATUS"; payload: boolean }
   | { type: "SET_DEMO_MODE"; payload: boolean }
+  | { type: "ADD_HISTORICAL_DATA"; payload: HistoricalData }
+  | { type: "UPDATE_HISTORICAL_DATA"; payload: HistoricalData }
+  | { type: "DELETE_HISTORICAL_DATA"; payload: string }
+  | { type: "ADD_EXPENSE_CATEGORY"; payload: string }
+  | { type: "UPDATE_EXPENSE_CATEGORY"; payload: { oldName: string; newName: string } }
+  | { type: "DELETE_EXPENSE_CATEGORY"; payload: string }
 
 const defaultConfiguration: Configuration = {
   id: "default-config-id",
@@ -139,6 +157,7 @@ const initialState: AppState = {
   maintenanceTasks: [],
   configuration: defaultConfiguration,
   pettyCash: 50000,
+  historicalData: [],
   isLoading: true,
   isConnected: false,
   isDemoMode: true,
@@ -979,6 +998,50 @@ function appReducer(state: AppState, action: AppAction): AppState {
       }
     }
 
+    case "ADD_HISTORICAL_DATA":
+      return { ...state, historicalData: [...state.historicalData, action.payload] }
+
+    case "UPDATE_HISTORICAL_DATA":
+      return {
+        ...state,
+        historicalData: state.historicalData.map((h) => (h.id === action.payload.id ? action.payload : h)),
+      }
+
+    case "DELETE_HISTORICAL_DATA":
+      return { ...state, historicalData: state.historicalData.filter((h) => h.id !== action.payload) }
+
+    case "ADD_EXPENSE_CATEGORY":
+      if (state.configuration.expenseCategories.includes(action.payload)) {
+        return state
+      }
+      return {
+        ...state,
+        configuration: {
+          ...state.configuration,
+          expenseCategories: [...state.configuration.expenseCategories, action.payload],
+        },
+      }
+
+    case "UPDATE_EXPENSE_CATEGORY":
+      return {
+        ...state,
+        configuration: {
+          ...state.configuration,
+          expenseCategories: state.configuration.expenseCategories.map((cat) =>
+            cat === action.payload.oldName ? action.payload.newName : cat,
+          ),
+        },
+      }
+
+    case "DELETE_EXPENSE_CATEGORY":
+      return {
+        ...state,
+        configuration: {
+          ...state.configuration,
+          expenseCategories: state.configuration.expenseCategories.filter((cat) => cat !== action.payload),
+        },
+      }
+
     default:
       return state
   }
@@ -1009,6 +1072,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           expenses: mockExpenses,
           maintenanceTasks: mockMaintenanceTasks,
           configuration: mockConfiguration,
+          historicalData: mockHistoricalData,
           pettyCash: mockConfiguration.pettyCash || 50000,
           isLoading: false,
           isDemoMode: true,
@@ -1028,6 +1092,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         { data: maintenanceTasks, error: maintenanceTasksError },
         { data: configurations, error: configError },
         { data: monthlyHistory, error: historyError },
+        { data: historicalData, error: historicalDataError },
       ] = await Promise.all([
         supabase.from("residents").select("*"),
         supabase.from("rooms").select("*"),
@@ -1037,6 +1102,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         supabase.from("maintenance_tasks").select("*"),
         supabase.from("configurations").select("*").limit(1),
         supabase.from("monthly_rate_history").select("*"),
+        supabase.from("historical_data").select("*"),
       ])
 
       if (
@@ -1047,7 +1113,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         expensesError ||
         maintenanceTasksError ||
         configError ||
-        historyError
+        historyError ||
+        historicalDataError
       ) {
         dispatch({ type: "SET_CONNECTION_STATUS", payload: false })
         dispatch({
@@ -1060,6 +1127,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             expenses: mockExpenses,
             maintenanceTasks: mockMaintenanceTasks,
             configuration: mockConfiguration,
+            historicalData: mockHistoricalData,
             pettyCash: mockConfiguration.pettyCash || 50000,
             isLoading: false,
             isDemoMode: true,
@@ -1090,7 +1158,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           id: r.id,
           firstName: r.first_name,
           lastName: r.last_name,
-          nationality: r.nationality,
+          nationality: r.nationality || "argentina",
           email: r.email,
           phone: r.phone,
           emergencyContact: {
@@ -1170,6 +1238,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           notes: t.notes,
         })) || []
 
+      const parsedHistoricalData =
+        historicalData?.map((h) => ({
+          id: h.id,
+          period: h.period,
+          totalIncome: h.total_income,
+          expenses: h.expenses,
+          createdAt: h.created_at,
+          updatedAt: h.updated_at,
+        })) || []
+
       dispatch({
         type: "LOAD_DATA",
         payload: {
@@ -1181,6 +1259,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           maintenanceTasks: parsedMaintenanceTasks,
           configuration: loadedConfig,
           pettyCash: loadedConfig.pettyCash,
+          historicalData: parsedHistoricalData,
           isLoading: false,
           isDemoMode: false,
           isConnected: true,
@@ -1198,6 +1277,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           expenses: mockExpenses,
           maintenanceTasks: mockMaintenanceTasks,
           configuration: mockConfiguration,
+          historicalData: mockHistoricalData,
           pettyCash: mockConfiguration.pettyCash || 50000,
           isLoading: false,
           isDemoMode: true,

@@ -1,467 +1,588 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAppContext } from "@/context/AppContext"
-import { Save, Plus, Trash2, Edit } from "lucide-react"
-import type { Room } from "@/types"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { ConnectionStatus } from "./ConnectionStatus"
-
-const roomTypes = [
-  { value: "individual", label: "Individual", capacity: 1 },
-  { value: "double", label: "Doble", capacity: 2 },
-  { value: "triple", label: "Triple", capacity: 3 },
-  { value: "quadruple", label: "Cuádruple", capacity: 4 },
-  { value: "quintuple", label: "Quíntuple", capacity: 5 },
-] as const
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useAppContext } from "@/context/AppContext"
+import { Plus, Trash2, Edit2, Check, X } from "lucide-react"
+import { toast } from "sonner"
+import type { HistoricalData } from "@/types"
 
 export default function Settings() {
-  const { state, dispatch } = useAppContext()
-  const [exchangeRate, setExchangeRate] = useState(state.configuration.exchangeRate)
-  const [roomRates, setRoomRates] = useState(state.configuration.roomRates)
-  const [manualRatesARS, setManualRatesARS] = useState(state.configuration.roomRatesARS)
-  const [useManualRates, setUseManualRates] = useState(false)
+  const {
+    configuration,
+    updateConfiguration,
+    historicalData,
+    addHistoricalData,
+    updateHistoricalData,
+    deleteHistoricalData,
+  } = useAppContext()
 
-  // Estado para gestión de habitaciones
-  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false)
-  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false)
-  const [editingRoom, setEditingRoom] = useState<Room | null>(null)
-  const [newRoom, setNewRoom] = useState({
-    number: "",
-    type: "individual" as Room["type"],
-    gender: "male" as "male" | "female",
+  const [exchangeRate, setExchangeRate] = useState(configuration.exchangeRate.toString())
+  const [pettyCash, setPettyCash] = useState(configuration.pettyCash.toString())
+  const [newCategory, setNewCategory] = useState("")
+  const [newArea, setNewArea] = useState("")
+
+  // Historical data form states
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString())
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
+  const [income, setIncome] = useState("")
+  const [expenses, setExpenses] = useState("")
+
+  // Edit mode states
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editMonth, setEditMonth] = useState("")
+  const [editYear, setEditYear] = useState("")
+  const [editIncome, setEditIncome] = useState("")
+  const [editExpenses, setEditExpenses] = useState("")
+
+  const months = [
+    { value: "0", label: "Enero" },
+    { value: "1", label: "Febrero" },
+    { value: "2", label: "Marzo" },
+    { value: "3", label: "Abril" },
+    { value: "4", label: "Mayo" },
+    { value: "5", label: "Junio" },
+    { value: "6", label: "Julio" },
+    { value: "7", label: "Agosto" },
+    { value: "8", label: "Septiembre" },
+    { value: "9", label: "Octubre" },
+    { value: "10", label: "Noviembre" },
+    { value: "11", label: "Diciembre" },
+  ]
+
+  const years = Array.from({ length: 10 }, (_, i) => {
+    const year = new Date().getFullYear() - 5 + i
+    return { value: year.toString(), label: year.toString() }
   })
 
-  const handleSaveConfiguration = () => {
-    const calculatedRatesARS = {
-      individual: Math.round(roomRates.individual * exchangeRate),
-      double: Math.round(roomRates.double * exchangeRate),
-      triple: Math.round(roomRates.triple * exchangeRate),
-      quadruple: Math.round(roomRates.quadruple * exchangeRate),
-      quintuple: Math.round(roomRates.quintuple * exchangeRate),
+  const handleUpdateExchangeRate = () => {
+    const rate = Number.parseFloat(exchangeRate)
+    if (isNaN(rate) || rate <= 0) {
+      toast.error("Por favor ingrese una tasa de cambio válida")
+      return
     }
 
-    const finalRatesARS = useManualRates ? manualRatesARS : calculatedRatesARS
+    const updatedRatesARS = {
+      individual: Math.round(configuration.roomRates.individual * rate),
+      double: Math.round(configuration.roomRates.double * rate),
+      triple: Math.round(configuration.roomRates.triple * rate),
+      quadruple: Math.round(configuration.roomRates.quadruple * rate),
+      quintuple: Math.round(configuration.roomRates.quintuple * rate),
+    }
 
-    dispatch({
-      type: "UPDATE_CONFIGURATION",
-      payload: {
-        ...state.configuration,
-        exchangeRate,
-        roomRates,
-        roomRatesARS: finalRatesARS,
-        lastUpdated: new Date().toISOString(),
-      },
+    updateConfiguration({
+      exchangeRate: rate,
+      roomRatesARS: updatedRatesARS,
+      lastUpdated: new Date().toISOString(),
     })
+
+    toast.success("Tasa de cambio actualizada correctamente")
   }
 
-  const handleSaveMonthlyRates = () => {
-    const now = new Date()
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const handleUpdatePettyCash = () => {
+    const cash = Number.parseFloat(pettyCash)
+    if (isNaN(cash) || cash < 0) {
+      toast.error("Por favor ingrese un monto válido")
+      return
+    }
 
-    dispatch({
-      type: "SAVE_MONTHLY_RATES",
-      payload: {
-        month,
-        userId: state.user?.id || "unknown",
-      },
+    updateConfiguration({
+      pettyCash: cash,
     })
+
+    toast.success("Caja chica actualizada correctamente")
   }
 
-  const handleAddRoom = () => {
-    if (!newRoom.number) return
-
-    const roomType = roomTypes.find((rt) => rt.value === newRoom.type)
-    if (!roomType) return
-
-    const room: Room = {
-      id: `room-${Date.now()}`,
-      number: newRoom.number,
-      type: newRoom.type,
-      capacity: roomType.capacity,
-      currentOccupancy: 0,
-      status: "available",
-      monthlyRate: roomRates[newRoom.type],
-      gender: newRoom.gender,
+  const handleAddCategory = () => {
+    if (!newCategory.trim()) {
+      toast.error("Por favor ingrese un nombre de categoría")
+      return
     }
 
-    dispatch({ type: "ADD_ROOM", payload: room })
-    setNewRoom({ number: "", type: "individual", gender: "male" })
-    setIsAddRoomOpen(false)
-  }
-
-  const handleEditRoom = () => {
-    if (!editingRoom) return
-
-    const roomType = roomTypes.find((rt) => rt.value === editingRoom.type)
-    if (!roomType) return
-
-    const updatedRoom: Room = {
-      ...editingRoom,
-      capacity: roomType.capacity,
+    if (configuration.expenseCategories.includes(newCategory)) {
+      toast.error("Esta categoría ya existe")
+      return
     }
 
-    dispatch({ type: "UPDATE_ROOM", payload: updatedRoom })
-    setEditingRoom(null)
-    setIsEditRoomOpen(false)
+    updateConfiguration({
+      expenseCategories: [...configuration.expenseCategories, newCategory],
+    })
+
+    setNewCategory("")
+    toast.success("Categoría agregada correctamente")
   }
 
-  const handleDeleteRoom = (roomId: string) => {
-    if (confirm("¿Estás seguro de que deseas eliminar esta habitación?")) {
-      dispatch({ type: "DELETE_ROOM", payload: roomId })
+  const handleRemoveCategory = (category: string) => {
+    updateConfiguration({
+      expenseCategories: configuration.expenseCategories.filter((c) => c !== category),
+    })
+
+    toast.success("Categoría eliminada correctamente")
+  }
+
+  const handleAddArea = () => {
+    if (!newArea.trim()) {
+      toast.error("Por favor ingrese un nombre de área")
+      return
     }
+
+    if (configuration.maintenanceAreas.includes(newArea)) {
+      toast.error("Esta área ya existe")
+      return
+    }
+
+    updateConfiguration({
+      maintenanceAreas: [...configuration.maintenanceAreas, newArea],
+    })
+
+    setNewArea("")
+    toast.success("Área agregada correctamente")
   }
 
-  const openEditDialog = (room: Room) => {
-    setEditingRoom({ ...room })
-    setIsEditRoomOpen(true)
+  const handleRemoveArea = (area: string) => {
+    updateConfiguration({
+      maintenanceAreas: configuration.maintenanceAreas.filter((a) => a !== area),
+    })
+
+    toast.success("Área eliminada correctamente")
+  }
+
+  const handleAddHistoricalData = () => {
+    const incomeValue = Number.parseFloat(income)
+    const expensesValue = Number.parseFloat(expenses)
+
+    if (isNaN(incomeValue) || incomeValue < 0) {
+      toast.error("Por favor ingrese un monto de ingresos válido")
+      return
+    }
+
+    if (isNaN(expensesValue) || expensesValue < 0) {
+      toast.error("Por favor ingrese un monto de gastos válido")
+      return
+    }
+
+    const period = `${selectedYear}-${(Number.parseInt(selectedMonth) + 1).toString().padStart(2, "0")}`
+
+    // Check if period already exists
+    if (historicalData.some((data) => data.period === period)) {
+      toast.error("Ya existe un registro para este período")
+      return
+    }
+
+    const newData: HistoricalData = {
+      id: `hist-${Date.now()}`,
+      period,
+      income: incomeValue,
+      expenses: expensesValue,
+      result: incomeValue - expensesValue,
+    }
+
+    addHistoricalData(newData)
+
+    setIncome("")
+    setExpenses("")
+    toast.success("Datos históricos agregados correctamente")
+  }
+
+  const startEdit = (data: HistoricalData) => {
+    setEditingId(data.id)
+    const [year, month] = data.period.split("-")
+    setEditYear(year)
+    setEditMonth((Number.parseInt(month) - 1).toString())
+    setEditIncome(data.income.toString())
+    setEditExpenses(data.expenses.toString())
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditMonth("")
+    setEditYear("")
+    setEditIncome("")
+    setEditExpenses("")
+  }
+
+  const saveEdit = (id: string) => {
+    const incomeValue = Number.parseFloat(editIncome)
+    const expensesValue = Number.parseFloat(editExpenses)
+
+    if (isNaN(incomeValue) || incomeValue < 0) {
+      toast.error("Por favor ingrese un monto de ingresos válido")
+      return
+    }
+
+    if (isNaN(expensesValue) || expensesValue < 0) {
+      toast.error("Por favor ingrese un monto de gastos válido")
+      return
+    }
+
+    const period = `${editYear}-${(Number.parseInt(editMonth) + 1).toString().padStart(2, "0")}`
+
+    // Check if period already exists (excluding current)
+    if (historicalData.some((data) => data.period === period && data.id !== id)) {
+      toast.error("Ya existe un registro para este período")
+      return
+    }
+
+    updateHistoricalData(id, {
+      period,
+      income: incomeValue,
+      expenses: expensesValue,
+      result: incomeValue - expensesValue,
+    })
+
+    cancelEdit()
+    toast.success("Datos históricos actualizados correctamente")
+  }
+
+  const handleDeleteHistoricalData = (id: string) => {
+    deleteHistoricalData(id)
+    toast.success("Datos históricos eliminados correctamente")
+  }
+
+  const formatPeriod = (period: string) => {
+    const [year, month] = period.split("-")
+    const monthName = months.find((m) => m.value === (Number.parseInt(month) - 1).toString())?.label
+    return `${monthName} ${year}`
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Configuración</h2>
-        <p className="text-muted-foreground">Gestiona las tarifas, habitaciones y configuración general</p>
+        <p className="text-muted-foreground">Administre la configuración general del sistema</p>
       </div>
 
-      <Tabs defaultValue="rates" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="rates">Tarifas</TabsTrigger>
-          <TabsTrigger value="rooms">Habitaciones</TabsTrigger>
-          <TabsTrigger value="database">Base de Datos</TabsTrigger>
-        </TabsList>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Tasa de Cambio USD/ARS</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="exchangeRate">Tasa Actual</Label>
+              <Input
+                id="exchangeRate"
+                type="number"
+                value={exchangeRate}
+                onChange={(e) => setExchangeRate(e.target.value)}
+                placeholder="1300"
+              />
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Última actualización:</span>
+              <span>{new Date(configuration.lastUpdated).toLocaleDateString("es-AR")}</span>
+            </div>
+            <Button onClick={handleUpdateExchangeRate} className="w-full">
+              Actualizar Tasa
+            </Button>
+          </CardContent>
+        </Card>
 
-        {/* Tab de Tarifas */}
-        <TabsContent value="rates" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tipo de Cambio</CardTitle>
-              <CardDescription>Configura el tipo de cambio USD a ARS</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Caja Chica</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="pettyCash">Monto Actual</Label>
+              <Input
+                id="pettyCash"
+                type="number"
+                value={pettyCash}
+                onChange={(e) => setPettyCash(e.target.value)}
+                placeholder="50000"
+              />
+            </div>
+            <div className="text-2xl font-bold">{formatCurrency(configuration.pettyCash)}</div>
+            <Button onClick={handleUpdatePettyCash} className="w-full">
+              Actualizar Caja Chica
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tarifas de Habitaciones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <h4 className="font-semibold mb-4">Tarifas en USD</h4>
               <div className="space-y-2">
-                <Label htmlFor="exchangeRate">Tipo de Cambio (USD a ARS)</Label>
-                <Input
-                  id="exchangeRate"
-                  type="number"
-                  value={exchangeRate}
-                  onChange={(e) => setExchangeRate(Number(e.target.value))}
-                  placeholder="1300"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Última actualización: {new Date(state.configuration.lastUpdated).toLocaleString("es-AR")}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Tarifas Mensuales por Tipo de Habitación</CardTitle>
-              <CardDescription>Configura las tarifas base en USD</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {roomTypes.map((roomType) => (
-                <div key={roomType.value} className="space-y-2">
-                  <Label htmlFor={`rate-${roomType.value}`}>
-                    {roomType.label} (Capacidad: {roomType.capacity})
-                  </Label>
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <Input
-                        id={`rate-${roomType.value}`}
-                        type="number"
-                        value={roomRates[roomType.value]}
-                        onChange={(e) =>
-                          setRoomRates({
-                            ...roomRates,
-                            [roomType.value]: Number(e.target.value),
-                          })
-                        }
-                        placeholder="USD"
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">USD {roomRates[roomType.value]}</p>
-                    </div>
-                    <div className="flex-1">
-                      <Input
-                        type="number"
-                        value={
-                          useManualRates
-                            ? manualRatesARS[roomType.value]
-                            : Math.round(roomRates[roomType.value] * exchangeRate)
-                        }
-                        onChange={(e) => {
-                          setUseManualRates(true)
-                          setManualRatesARS({
-                            ...manualRatesARS,
-                            [roomType.value]: Number(e.target.value),
-                          })
-                        }}
-                        placeholder="ARS"
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        ARS{" "}
-                        {useManualRates
-                          ? manualRatesARS[roomType.value].toLocaleString("es-AR")
-                          : Math.round(roomRates[roomType.value] * exchangeRate).toLocaleString("es-AR")}
-                      </p>
-                    </div>
+                {Object.entries(configuration.roomRates).map(([type, rate]) => (
+                  <div key={type} className="flex justify-between items-center">
+                    <span className="capitalize">{type}</span>
+                    <Badge variant="outline">${rate}</Badge>
                   </div>
-                </div>
-              ))}
-
-              <div className="flex gap-2 pt-4">
-                <Button onClick={handleSaveConfiguration} className="flex-1">
-                  <Save className="mr-2 h-4 w-4" />
-                  Guardar Configuración
-                </Button>
-                <Button onClick={handleSaveMonthlyRates} variant="outline" className="flex-1 bg-transparent">
-                  Guardar Mes Actual
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab de Habitaciones */}
-        <TabsContent value="rooms" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Gestión de Habitaciones</CardTitle>
-                  <CardDescription>Administra las habitaciones disponibles</CardDescription>
-                </div>
-                <Dialog open={isAddRoomOpen} onOpenChange={setIsAddRoomOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Agregar Habitación
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Nueva Habitación</DialogTitle>
-                      <DialogDescription>Agrega una nueva habitación al sistema</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="room-number">Número de Habitación</Label>
-                        <Input
-                          id="room-number"
-                          value={newRoom.number}
-                          onChange={(e) => setNewRoom({ ...newRoom, number: e.target.value })}
-                          placeholder="Ej: 101"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="room-type">Tipo de Habitación</Label>
-                        <Select
-                          value={newRoom.type}
-                          onValueChange={(value: Room["type"]) => setNewRoom({ ...newRoom, type: value })}
-                        >
-                          <SelectTrigger id="room-type">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {roomTypes.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label} (Capacidad: {type.capacity})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="room-gender">Género de Habitación</Label>
-                        <Select
-                          value={newRoom.gender}
-                          onValueChange={(value: "male" | "female") => setNewRoom({ ...newRoom, gender: value })}
-                        >
-                          <SelectTrigger id="room-gender">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="male">Masculina</SelectItem>
-                            <SelectItem value="female">Femenina</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsAddRoomOpen(false)}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleAddRoom}>Agregar</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {state.rooms.length === 0 ? (
-                  <p className="text-center text-muted-foreground">No hay habitaciones registradas</p>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {state.rooms.map((room) => (
-                      <Card key={room.id}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">Habitación {room.number}</CardTitle>
-                            <Badge
-                              variant="outline"
-                              className={
-                                room.gender === "male"
-                                  ? "text-blue-400 border-blue-400"
-                                  : "text-pink-400 border-pink-400"
-                              }
-                            >
-                              {room.gender === "male" ? "M" : "F"}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          <div className="text-sm">
-                            <p className="text-muted-foreground">
-                              Tipo:{" "}
-                              <span className="font-medium text-foreground">
-                                {roomTypes.find((rt) => rt.value === room.type)?.label}
-                              </span>
-                            </p>
-                            <p className="text-muted-foreground">
-                              Capacidad: <span className="font-medium text-foreground">{room.capacity} plazas</span>
-                            </p>
-                            <p className="text-muted-foreground">
-                              Tarifa: <span className="font-medium text-foreground">USD {room.monthlyRate}</span>
-                            </p>
-                          </div>
-                          <div className="flex gap-2 pt-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 bg-transparent"
-                              onClick={() => openEditDialog(room)}
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => handleDeleteRoom(room.id)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab de Base de Datos */}
-        <TabsContent value="database" className="space-y-4">
-          <ConnectionStatus />
-        </TabsContent>
-      </Tabs>
-
-      {/* Dialog de Edición */}
-      <Dialog open={isEditRoomOpen} onOpenChange={setIsEditRoomOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Habitación {editingRoom?.number}</DialogTitle>
-            <DialogDescription>Modifica los detalles de la habitación</DialogDescription>
-          </DialogHeader>
-          {editingRoom && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-room-number">Número de Habitación</Label>
-                <Input
-                  id="edit-room-number"
-                  value={editingRoom.number}
-                  onChange={(e) => setEditingRoom({ ...editingRoom, number: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-room-type">Tipo de Habitación</Label>
-                <Select
-                  value={editingRoom.type}
-                  onValueChange={(value: Room["type"]) => setEditingRoom({ ...editingRoom, type: value })}
-                >
-                  <SelectTrigger id="edit-room-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roomTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label} (Capacidad: {type.capacity})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  La capacidad se actualizará automáticamente a{" "}
-                  {roomTypes.find((rt) => rt.value === editingRoom.type)?.capacity} plazas
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-room-rate">Tarifa Mensual (USD)</Label>
-                <Input
-                  id="edit-room-rate"
-                  type="number"
-                  value={editingRoom.monthlyRate}
-                  onChange={(e) => setEditingRoom({ ...editingRoom, monthlyRate: Number(e.target.value) })}
-                  min={0}
-                  step="0.01"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-room-gender">Género de Habitación</Label>
-                <Select
-                  value={editingRoom.gender || "male"}
-                  onValueChange={(value: "male" | "female") => setEditingRoom({ ...editingRoom, gender: value })}
-                >
-                  <SelectTrigger id="edit-room-gender">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Masculina</SelectItem>
-                    <SelectItem value="female">Femenina</SelectItem>
-                  </SelectContent>
-                </Select>
+                ))}
               </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditRoomOpen(false)}>
-              Cancelar
+            <div>
+              <h4 className="font-semibold mb-4">Tarifas en ARS</h4>
+              <div className="space-y-2">
+                {Object.entries(configuration.roomRatesARS).map(([type, rate]) => (
+                  <div key={type} className="flex justify-between items-center">
+                    <span className="capitalize">{type}</span>
+                    <Badge variant="secondary">{formatCurrency(rate)}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Categorías de Gastos</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder="Nueva categoría"
+              onKeyPress={(e) => e.key === "Enter" && handleAddCategory()}
+            />
+            <Button onClick={handleAddCategory}>
+              <Plus className="h-4 w-4" />
             </Button>
-            <Button onClick={handleEditRoom}>Guardar Cambios</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {configuration.expenseCategories.map((category) => (
+              <Badge key={category} variant="secondary" className="gap-2">
+                {category}
+                <button onClick={() => handleRemoveCategory(category)} className="hover:text-destructive">
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Áreas de Mantenimiento</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              value={newArea}
+              onChange={(e) => setNewArea(e.target.value)}
+              placeholder="Nueva área"
+              onKeyPress={(e) => e.key === "Enter" && handleAddArea()}
+            />
+            <Button onClick={handleAddArea}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {configuration.maintenanceAreas.map((area) => (
+              <Badge key={area} variant="secondary" className="gap-2">
+                {area}
+                <button onClick={() => handleRemoveArea(area)} className="hover:text-destructive">
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos Históricos</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="month">Mes</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger id="month">
+                  <SelectValue placeholder="Seleccionar mes" />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((month) => (
+                    <SelectItem key={month.value} value={month.value}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="year">Año</Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger id="year">
+                  <SelectValue placeholder="Seleccionar año" />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year.value} value={year.value}>
+                      {year.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="income">Ingresos (ARS)</Label>
+              <Input
+                id="income"
+                type="number"
+                value={income}
+                onChange={(e) => setIncome(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="expenses">Gastos (ARS)</Label>
+              <Input
+                id="expenses"
+                type="number"
+                value={expenses}
+                onChange={(e) => setExpenses(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <Button onClick={handleAddHistoricalData} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            Agregar Período
+          </Button>
+
+          {historicalData.length > 0 && (
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Período</TableHead>
+                    <TableHead className="text-right">Ingresos</TableHead>
+                    <TableHead className="text-right">Gastos</TableHead>
+                    <TableHead className="text-right">Resultado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {historicalData
+                    .sort((a, b) => b.period.localeCompare(a.period))
+                    .map((data) => (
+                      <TableRow key={data.id}>
+                        {editingId === data.id ? (
+                          <>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Select value={editMonth} onValueChange={setEditMonth}>
+                                  <SelectTrigger className="w-[120px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {months.map((month) => (
+                                      <SelectItem key={month.value} value={month.value}>
+                                        {month.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Select value={editYear} onValueChange={setEditYear}>
+                                  <SelectTrigger className="w-[100px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {years.map((year) => (
+                                      <SelectItem key={year.value} value={year.value}>
+                                        {year.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={editIncome}
+                                onChange={(e) => setEditIncome(e.target.value)}
+                                className="text-right"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={editExpenses}
+                                onChange={(e) => setEditExpenses(e.target.value)}
+                                className="text-right"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge
+                                variant={
+                                  Number.parseFloat(editIncome) - Number.parseFloat(editExpenses) >= 0
+                                    ? "default"
+                                    : "destructive"
+                                }
+                              >
+                                {formatCurrency(Number.parseFloat(editIncome) - Number.parseFloat(editExpenses))}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex justify-end gap-2">
+                                <Button size="icon" variant="ghost" onClick={() => saveEdit(data.id)}>
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={cancelEdit}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="font-medium">{formatPeriod(data.period)}</TableCell>
+                            <TableCell className="text-right text-green-600">{formatCurrency(data.income)}</TableCell>
+                            <TableCell className="text-right text-red-600">{formatCurrency(data.expenses)}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant={data.result >= 0 ? "default" : "destructive"}>
+                                {formatCurrency(data.result)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex justify-end gap-2">
+                                <Button size="icon" variant="ghost" onClick={() => startEdit(data)}>
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={() => handleDeleteHistoricalData(data.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

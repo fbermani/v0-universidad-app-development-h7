@@ -1,4 +1,13 @@
-import type { Room, Resident, Payment, Expense, MaintenanceTask, Configuration, Reservation } from "../types"
+import type {
+  Room,
+  Resident,
+  Reservation,
+  Payment,
+  Expense,
+  MaintenanceTask,
+  Configuration,
+  HistoricalData,
+} from "../types"
 
 export const mockRooms: Room[] = [
   {
@@ -6,23 +15,23 @@ export const mockRooms: Room[] = [
     number: "1",
     type: "double",
     capacity: 2,
-    currentOccupancy: 1,
-    status: "occupied",
+    currentOccupancy: 0,
+    status: "available",
     monthlyRate: 190,
     gender: "male",
   },
   {
-    id: "4",
+    id: "2",
     number: "4",
     type: "quadruple",
     capacity: 4,
-    currentOccupancy: 1,
-    status: "occupied",
+    currentOccupancy: 0,
+    status: "available",
     monthlyRate: 150,
     gender: "male",
   },
   {
-    id: "5",
+    id: "3",
     number: "5",
     type: "triple",
     capacity: 3,
@@ -32,7 +41,7 @@ export const mockRooms: Room[] = [
     gender: "male",
   },
   {
-    id: "6",
+    id: "4",
     number: "6",
     type: "double",
     capacity: 2,
@@ -42,7 +51,7 @@ export const mockRooms: Room[] = [
     gender: "male",
   },
   {
-    id: "7",
+    id: "5",
     number: "7",
     type: "double",
     capacity: 2,
@@ -52,7 +61,7 @@ export const mockRooms: Room[] = [
     gender: "male",
   },
   {
-    id: "8",
+    id: "6",
     number: "8",
     type: "quadruple",
     capacity: 4,
@@ -62,7 +71,7 @@ export const mockRooms: Room[] = [
     gender: "male",
   },
   {
-    id: "9",
+    id: "7",
     number: "9",
     type: "triple",
     capacity: 3,
@@ -72,7 +81,7 @@ export const mockRooms: Room[] = [
     gender: "female",
   },
   {
-    id: "10",
+    id: "8",
     number: "10",
     type: "double",
     capacity: 2,
@@ -82,7 +91,7 @@ export const mockRooms: Room[] = [
     gender: "female",
   },
   {
-    id: "11",
+    id: "9",
     number: "11",
     type: "individual",
     capacity: 1,
@@ -92,7 +101,7 @@ export const mockRooms: Room[] = [
     gender: "female",
   },
   {
-    id: "12",
+    id: "10",
     number: "12",
     type: "individual",
     capacity: 1,
@@ -102,7 +111,7 @@ export const mockRooms: Room[] = [
     gender: "male",
   },
   {
-    id: "13",
+    id: "11",
     number: "13",
     type: "individual",
     capacity: 1,
@@ -112,7 +121,7 @@ export const mockRooms: Room[] = [
     gender: "female",
   },
   {
-    id: "14",
+    id: "12",
     number: "14",
     type: "individual",
     capacity: 1,
@@ -122,7 +131,7 @@ export const mockRooms: Room[] = [
     gender: "male",
   },
   {
-    id: "15",
+    id: "13",
     number: "15",
     type: "individual",
     capacity: 1,
@@ -132,7 +141,7 @@ export const mockRooms: Room[] = [
     gender: "male",
   },
   {
-    id: "16",
+    id: "14",
     number: "16",
     type: "individual",
     capacity: 1,
@@ -143,140 +152,22 @@ export const mockRooms: Room[] = [
   },
 ]
 
-export const mockResidents: Resident[] = [
-  {
-    id: "general-income",
-    firstName: "Ingreso",
-    lastName: "General",
-    nationality: "argentina",
-    email: "",
-    phone: "",
-    emergencyContact: { name: "", phone: "", relationship: "" },
-    roomId: "",
-    checkInDate: "2023-01-01",
-    status: "active",
-    behaviorNotes: [],
-    documents: [],
-  },
-  {
-    id: "1",
-    firstName: "Juan",
-    lastName: "Pérez",
-    nationality: "argentina",
-    email: "juan.perez@email.com",
-    phone: "+54 11 1234-5678",
-    emergencyContact: {
-      name: "María Pérez",
-      phone: "+54 11 8765-4321",
-      relationship: "Madre",
-    },
-    roomId: "1",
-    checkInDate: "2024-01-15",
-    status: "active",
-    behaviorNotes: [],
-    documents: [],
-  },
-  {
-    id: "2",
-    firstName: "Ana",
-    lastName: "García",
-    nationality: "colombia",
-    email: "ana.garcia@email.com",
-    phone: "+54 11 2345-6789",
-    emergencyContact: {
-      name: "Carlos García",
-      phone: "+54 11 9876-5432",
-      relationship: "Padre",
-    },
-    roomId: "4",
-    checkInDate: "2024-02-01",
-    status: "active",
-    behaviorNotes: [],
-    documents: [],
-  },
-]
+export const mockResidents: Resident[] = []
+
+export const mockNewResidents: Resident[] = []
 
 export const mockReservations: Reservation[] = []
 
-export const mockPayments: Payment[] = [
-  {
-    id: "1",
-    residentId: "1",
-    amount: 247000,
-    currency: "ARS",
-    method: "transfer",
-    date: "2024-12-01",
-    type: "monthly_rent",
-    status: "completed",
-    receiptNumber: "REC-001",
-  },
-  {
-    id: "2",
-    residentId: "2",
-    amount: 175500,
-    currency: "ARS",
-    method: "cash",
-    date: "2024-12-03",
-    type: "monthly_rent",
-    status: "pending",
-  },
-  {
-    id: "3",
-    residentId: "general-income",
-    amount: 25000,
-    currency: "ARS",
-    method: "cash",
-    date: "2024-01-20",
-    type: "deposit",
-    status: "completed",
-  },
-]
+export const mockPayments: Payment[] = []
 
-export const mockExpenses: Expense[] = [
-  {
-    id: "1",
-    category: "Alquiler",
-    amount: 150000,
-    currency: "ARS",
-    method: "transfer",
-    date: "2024-01-01",
-    description: "Alquiler mensual enero",
-  },
-  {
-    id: "2",
-    category: "Luz",
-    amount: 25000,
-    currency: "ARS",
-    method: "cash",
-    date: "2024-01-15",
-    description: "Factura de electricidad",
-  },
-]
+export const mockExpenses: Expense[] = []
 
-export const mockMaintenanceTasks: MaintenanceTask[] = [
-  {
-    id: "1",
-    area: "Habitación",
-    description: "Reparar grifo de la habitación 3",
-    priority: "medium",
-    status: "pending",
-    assignedDate: "2024-01-10",
-  },
-  {
-    id: "2",
-    area: "Cocina 1",
-    description: "Limpiar filtro de campana extractora",
-    priority: "low",
-    status: "completed",
-    assignedDate: "2024-01-05",
-    completedDate: "2024-01-08",
-  },
-]
+export const mockMaintenanceTasks: MaintenanceTask[] = []
 
 export const mockConfiguration: Configuration = {
-  id: "default-config-id",
+  id: "default-config",
   exchangeRate: 1300,
-  lastUpdated: "2024-12-13",
+  lastUpdated: new Date().toISOString(),
   roomRates: {
     individual: 245,
     double: 190,
@@ -285,11 +176,11 @@ export const mockConfiguration: Configuration = {
     quintuple: 135,
   },
   roomRatesARS: {
-    individual: Math.round(245 * 1300),
-    double: Math.round(190 * 1300),
-    triple: Math.round(165 * 1300),
-    quadruple: Math.round(150 * 1300),
-    quintuple: Math.round(135 * 1300),
+    individual: 318500,
+    double: 247000,
+    triple: 214500,
+    quadruple: 195000,
+    quintuple: 175500,
   },
   paymentMethods: ["cash", "transfer"],
   expenseCategories: [
@@ -336,3 +227,5 @@ export const mockConfiguration: Configuration = {
   monthlyHistory: [],
   pettyCash: 50000,
 }
+
+export const mockHistoricalData: HistoricalData[] = []

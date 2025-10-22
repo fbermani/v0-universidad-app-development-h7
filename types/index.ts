@@ -20,17 +20,7 @@ export interface Resident {
   id: string
   firstName: string
   lastName: string
-  nationality:
-    | "argentina"
-    | "bolivia"
-    | "brasil"
-    | "chile"
-    | "colombia"
-    | "ecuador"
-    | "paraguay"
-    | "peru"
-    | "uruguay"
-    | "venezuela"
+  nationality: string
   email: string
   phone: string
   emergencyContact: {
@@ -114,6 +104,18 @@ export interface MaintenanceTask {
   notes?: string
 }
 
+export interface HistoricalData {
+  id: string
+  period: string // Format: "YYYY-MM"
+  totalIncome: number
+  expenses: {
+    category: string
+    amount: number
+  }[]
+  createdAt: string
+  updatedAt?: string
+}
+
 export interface Configuration {
   id: string
   exchangeRate: number
@@ -171,6 +173,7 @@ export interface AppState {
   maintenanceTasks: MaintenanceTask[]
   configuration: Configuration
   pettyCash: number
+  historicalData: HistoricalData[]
   selectedResidentIdForDetails: string | null
   isLoading: boolean
   isConnected: boolean
@@ -200,6 +203,12 @@ export type AppAction =
   | { type: "UPDATE_PETTY_CASH"; payload: number }
   | { type: "GENERATE_MONTHLY_PAYMENTS" }
   | { type: "SAVE_MONTHLY_RATES"; payload: { month: string; userId: string } }
+  | { type: "ADD_HISTORICAL_DATA"; payload: HistoricalData }
+  | { type: "UPDATE_HISTORICAL_DATA"; payload: HistoricalData }
+  | { type: "DELETE_HISTORICAL_DATA"; payload: string }
+  | { type: "ADD_EXPENSE_CATEGORY"; payload: string }
+  | { type: "UPDATE_EXPENSE_CATEGORY"; payload: { oldName: string; newName: string } }
+  | { type: "DELETE_EXPENSE_CATEGORY"; payload: string }
   | { type: "LOAD_DATA"; payload: Partial<AppState> }
   | { type: "SET_USER"; payload: User }
   | { type: "SET_LOADING"; payload: boolean }

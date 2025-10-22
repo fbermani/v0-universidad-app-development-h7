@@ -1,8 +1,9 @@
 import Image from "next/image"
 
 interface NationalityFlagProps {
-  nationality?: string
-  className?: string
+  nationality: string
+  showName?: boolean
+  size?: "sm" | "md" | "lg"
 }
 
 const countryFlags: Record<string, string> = {
@@ -31,8 +32,9 @@ export const countries = [
   { value: "venezuela", label: "Venezuela" },
 ]
 
-function NationalityFlag({ nationality, className = "" }: NationalityFlagProps) {
-  if (!nationality) {
+export function NationalityFlag({ nationality, showName = false, size = "md" }: NationalityFlagProps) {
+  // Validación de tipo para evitar errores
+  if (!nationality || typeof nationality !== "string") {
     return null
   }
 
@@ -43,16 +45,39 @@ function NationalityFlag({ nationality, className = "" }: NationalityFlagProps) 
     return null
   }
 
+  const sizeClasses = {
+    sm: "w-4 h-3",
+    md: "w-6 h-4",
+    lg: "w-8 h-6",
+  }
+
+  const countryNames: Record<string, string> = {
+    argentina: "Argentina",
+    bolivia: "Bolivia",
+    brasil: "Brasil",
+    chile: "Chile",
+    colombia: "Colombia",
+    ecuador: "Ecuador",
+    paraguay: "Paraguay",
+    peru: "Perú",
+    uruguay: "Uruguay",
+    venezuela: "Venezuela",
+  }
+
   return (
-    <Image
-      src={flagSrc || "/placeholder.svg"}
-      alt={`${nationality} flag`}
-      width={24}
-      height={24}
-      className={`rounded-full object-cover ${className}`}
-    />
+    <div className="flex items-center gap-2">
+      <Image
+        src={flagSrc || "/placeholder.svg"}
+        alt={countryNames[normalizedNationality] || nationality}
+        width={24}
+        height={16}
+        className={`${sizeClasses[size]} object-cover rounded-sm`}
+      />
+      {showName && (
+        <span className="text-sm text-muted-foreground">{countryNames[normalizedNationality] || nationality}</span>
+      )}
+    </div>
   )
 }
 
-export { NationalityFlag }
 export default NationalityFlag
