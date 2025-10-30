@@ -9,12 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { useAppContext } from "@/context/AppContext"
-import { Plus, Trash2, DollarSign, TrendingDown, AlertCircle } from "lucide-react"
+import {
+  Plus,
+  Trash2,
+  DollarSign,
+  TrendingDown,
+  AlertCircle,
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownRight,
+} from "lucide-react"
 import { toast } from "sonner"
-import type { Expense } from "@/types"
 
 export default function Expenses() {
-  const { expenses, configuration, addExpense, deleteExpense } = useAppContext()
+  const { state, dispatch } = useAppContext()
 
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString())
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
@@ -22,7 +30,7 @@ export default function Expenses() {
   const [category, setCategory] = useState("")
   const [amount, setAmount] = useState("")
   const [description, setDescription] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("cash")
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card" | "petty_cash">("cash")
 
   const months = [
     { value: "0", label: "Enero" },
@@ -45,18 +53,59 @@ export default function Expenses() {
   })
 
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
+    if (!state.expenses) return []
+    return state.expenses.filter((expense) => {
       const expenseDate = new Date(expense.date)
       return (
         expenseDate.getMonth() === Number.parseInt(selectedMonth) &&
         expenseDate.getFullYear() === Number.parseInt(selectedYear)
       )
     })
-  }, [expenses, selectedMonth, selectedYear])
+  }, [state.expenses, selectedMonth, selectedYear])
 
   const totalExpenses = useMemo(() => {
     return filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0)
   }, [filteredExpenses])
+
+  const previousMonthData = useMemo(() => {
+    if (!state.expenses) return { total: 0, percentage: 0, isIncrease: false }
+
+    const currentMonth = Number.parseInt(selectedMonth)
+    const currentYear = Number.parseInt(selectedYear)
+
+    let prevMonth = currentMonth - 1
+    let prevYear = currentYear
+
+    if (prevMonth < 0) {
+      prevMonth = 11
+      prevYear = currentYear - 1
+    }
+
+    const previousMonthExpenses = state.expenses.filter((expense) => {
+      const expenseDate = new Date(expense.date)
+      return expenseDate.getMonth() === prevMonth && expenseDate.getFullYear() === prevYear
+    })
+
+    const previousTotal = previousMonthExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+
+    let percentage = 0
+    let isIncrease = false
+
+    if (previousTotal > 0) {
+      const difference = totalExpenses - previousTotal
+      percentage = Math.abs((difference / previousTotal) * 100)
+      isIncrease = difference > 0
+    } else if (totalExpenses > 0) {
+      percentage = 100
+      isIncrease = true
+    }
+
+    return {
+      total: previousTotal,
+      percentage: Math.round(percentage * 10) / 10,
+      isIncrease,
+    }
+  }, [state.expenses, selectedMonth, selectedYear, totalExpenses])
 
   const expensesByCategory = useMemo(() => {
     const grouped = filteredExpenses.reduce(
@@ -76,9 +125,10 @@ export default function Expenses() {
   }, [filteredExpenses])
 
   const pendingCategories = useMemo(() => {
+    if (!state.configuration?.expenseCategories) return []
     const categoriesWithExpenses = new Set(filteredExpenses.map((e) => e.category))
-    return configuration.expenseCategories.filter((cat) => !categoriesWithExpenses.has(cat))
-  }, [filteredExpenses, configuration.expenseCategories])
+    return state.configuration.expenseCategories.filter((cat) => !categoriesWithExpenses.has(cat))
+  }, [filteredExpenses, state.configuration])
 
   const handleAddExpense = () => {
     if (!category) {
@@ -90,16 +140,17 @@ export default function Expenses() {
       return
     }
 
-    const newExpense: Expense = {
-      id: `exp-${Date.now()}`,
+    const newExpense = {
+      id: `expense-${Date.now()}`,
       category,
-      amount: Number.parseFloat(amount),
       description,
-      paymentMethod,
+      amount: Number.parseFloat(amount),
+      currency: "ARS" as const,
       date: new Date().toISOString(),
+      method: paymentMethod,
     }
 
-    addExpense(newExpense)
+    dispatch({ type: "ADD_EXPENSE", payload: newExpense })
 
     setCategory("")
     setAmount("")
@@ -110,8 +161,14 @@ export default function Expenses() {
   }
 
   const handleDeleteExpense = (id: string) => {
-    deleteExpense(id)
-    toast.success("Gasto eliminado correctamente")
+    if (confirm("¿Está seguro de eliminar este gasto?")) {
+      const expense = state.expenses.find((e) => e.id === id)
+      if (expense && expense.method === "petty_cash") {
+        dispatch({ type: "UPDATE_PETTY_CASH", payload: state.pettyCash + expense.amount })
+      }
+      dispatch({ type: "UPDATE_EXPENSE", payload: { id } as any })
+      toast.success("Gasto eliminado correctamente")
+    }
   }
 
   const formatCurrency = (amount: number) => {
@@ -121,6 +178,17 @@ export default function Expenses() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
+  }
+
+  if (state.isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Cargando gastos...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -147,14 +215,27 @@ export default function Expenses() {
 
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/20 border-orange-200 dark:border-orange-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Gasto Promedio</CardTitle>
-            <DollarSign className="h-4 w-4 text-orange-600" />
+            <CardTitle className="text-sm font-medium">Gastos Mes Previo</CardTitle>
+            {previousMonthData.isIncrease ? (
+              <ArrowUpRight className="h-4 w-4 text-red-600" />
+            ) : (
+              <ArrowDownRight className="h-4 w-4 text-green-600" />
+            )}
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {formatCurrency(filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0)}
+            <div className="text-2xl font-bold text-orange-600">{formatCurrency(previousMonthData.total)}</div>
+            <div className="flex items-center gap-1 mt-1">
+              {previousMonthData.isIncrease ? (
+                <TrendingUp className="h-3 w-3 text-red-600" />
+              ) : (
+                <TrendingDown className="h-3 w-3 text-green-600" />
+              )}
+              <p className={`text-xs font-medium ${previousMonthData.isIncrease ? "text-red-600" : "text-green-600"}`}>
+                {previousMonthData.isIncrease ? "+" : "-"}
+                {previousMonthData.percentage}%
+              </p>
+              <p className="text-xs text-muted-foreground">vs mes actual</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Por transacción</p>
           </CardContent>
         </Card>
 
@@ -186,7 +267,7 @@ export default function Expenses() {
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
-                  {configuration.expenseCategories.map((cat) => (
+                  {state.configuration.expenseCategories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
                     </SelectItem>
@@ -218,13 +299,18 @@ export default function Expenses() {
 
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Método de Pago</Label>
-              <Select value={paymentMethod} onValueChange={(value: "cash" | "transfer") => setPaymentMethod(value)}>
+              <Select
+                value={paymentMethod}
+                onValueChange={(value: "cash" | "transfer" | "card" | "petty_cash") => setPaymentMethod(value)}
+              >
                 <SelectTrigger id="paymentMethod">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Efectivo</SelectItem>
                   <SelectItem value="transfer">Transferencia</SelectItem>
+                  <SelectItem value="card">Tarjeta</SelectItem>
+                  <SelectItem value="petty_cash">Caja Chica</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -337,26 +423,42 @@ export default function Expenses() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredExpenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell>{new Date(expense.date).toLocaleDateString("es-AR")}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{expense.category}</Badge>
-                    </TableCell>
-                    <TableCell>{expense.description || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant={expense.paymentMethod === "cash" ? "default" : "secondary"}>
-                        {expense.paymentMethod === "cash" ? "Efectivo" : "Transferencia"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(expense.amount)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteExpense(expense.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredExpenses
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((expense) => (
+                    <TableRow key={expense.id}>
+                      <TableCell>{new Date(expense.date).toLocaleDateString("es-AR")}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{expense.category}</Badge>
+                      </TableCell>
+                      <TableCell>{expense.description || "-"}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            expense.method === "cash"
+                              ? "default"
+                              : expense.method === "petty_cash"
+                                ? "destructive"
+                                : "secondary"
+                          }
+                        >
+                          {expense.method === "cash"
+                            ? "Efectivo"
+                            : expense.method === "transfer"
+                              ? "Transferencia"
+                              : expense.method === "card"
+                                ? "Tarjeta"
+                                : "Caja Chica"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(expense.amount)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteExpense(expense.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           ) : (

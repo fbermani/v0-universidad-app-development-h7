@@ -23,8 +23,8 @@ export default function Settings() {
     deleteHistoricalData,
   } = useAppContext()
 
-  const [exchangeRate, setExchangeRate] = useState(configuration.exchangeRate.toString())
-  const [pettyCash, setPettyCash] = useState(configuration.pettyCash.toString())
+  const [exchangeRate, setExchangeRate] = useState((configuration?.exchangeRate || 1300).toString())
+  const [pettyCash, setPettyCash] = useState((configuration?.pettyCash || 50000).toString())
   const [newCategory, setNewCategory] = useState("")
   const [newArea, setNewArea] = useState("")
 
@@ -69,11 +69,11 @@ export default function Settings() {
     }
 
     const updatedRatesARS = {
-      individual: Math.round(configuration.roomRates.individual * rate),
-      double: Math.round(configuration.roomRates.double * rate),
-      triple: Math.round(configuration.roomRates.triple * rate),
-      quadruple: Math.round(configuration.roomRates.quadruple * rate),
-      quintuple: Math.round(configuration.roomRates.quintuple * rate),
+      individual: Math.round((configuration?.roomRates?.individual || 245) * rate),
+      double: Math.round((configuration?.roomRates?.double || 190) * rate),
+      triple: Math.round((configuration?.roomRates?.triple || 165) * rate),
+      quadruple: Math.round((configuration?.roomRates?.quadruple || 150) * rate),
+      quintuple: Math.round((configuration?.roomRates?.quintuple || 135) * rate),
     }
 
     updateConfiguration({
@@ -105,13 +105,13 @@ export default function Settings() {
       return
     }
 
-    if (configuration.expenseCategories.includes(newCategory)) {
+    if (configuration?.expenseCategories?.includes(newCategory)) {
       toast.error("Esta categoría ya existe")
       return
     }
 
     updateConfiguration({
-      expenseCategories: [...configuration.expenseCategories, newCategory],
+      expenseCategories: [...(configuration?.expenseCategories || []), newCategory],
     })
 
     setNewCategory("")
@@ -120,7 +120,7 @@ export default function Settings() {
 
   const handleRemoveCategory = (category: string) => {
     updateConfiguration({
-      expenseCategories: configuration.expenseCategories.filter((c) => c !== category),
+      expenseCategories: (configuration?.expenseCategories || []).filter((c) => c !== category),
     })
 
     toast.success("Categoría eliminada correctamente")
@@ -132,13 +132,13 @@ export default function Settings() {
       return
     }
 
-    if (configuration.maintenanceAreas.includes(newArea)) {
+    if (configuration?.maintenanceAreas?.includes(newArea)) {
       toast.error("Esta área ya existe")
       return
     }
 
     updateConfiguration({
-      maintenanceAreas: [...configuration.maintenanceAreas, newArea],
+      maintenanceAreas: [...(configuration?.maintenanceAreas || []), newArea],
     })
 
     setNewArea("")
@@ -147,7 +147,7 @@ export default function Settings() {
 
   const handleRemoveArea = (area: string) => {
     updateConfiguration({
-      maintenanceAreas: configuration.maintenanceAreas.filter((a) => a !== area),
+      maintenanceAreas: (configuration?.maintenanceAreas || []).filter((a) => a !== area),
     })
 
     toast.success("Área eliminada correctamente")
@@ -260,6 +260,14 @@ export default function Settings() {
     }).format(amount)
   }
 
+  if (!configuration) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Cargando configuración...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -325,7 +333,7 @@ export default function Settings() {
             <div>
               <h4 className="font-semibold mb-4">Tarifas en USD</h4>
               <div className="space-y-2">
-                {Object.entries(configuration.roomRates).map(([type, rate]) => (
+                {Object.entries(configuration.roomRates || {}).map(([type, rate]) => (
                   <div key={type} className="flex justify-between items-center">
                     <span className="capitalize">{type}</span>
                     <Badge variant="outline">${rate}</Badge>
@@ -336,7 +344,7 @@ export default function Settings() {
             <div>
               <h4 className="font-semibold mb-4">Tarifas en ARS</h4>
               <div className="space-y-2">
-                {Object.entries(configuration.roomRatesARS).map(([type, rate]) => (
+                {Object.entries(configuration.roomRatesARS || {}).map(([type, rate]) => (
                   <div key={type} className="flex justify-between items-center">
                     <span className="capitalize">{type}</span>
                     <Badge variant="secondary">{formatCurrency(rate)}</Badge>
@@ -365,7 +373,7 @@ export default function Settings() {
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {configuration.expenseCategories.map((category) => (
+            {(configuration.expenseCategories || []).map((category) => (
               <Badge key={category} variant="secondary" className="gap-2">
                 {category}
                 <button onClick={() => handleRemoveCategory(category)} className="hover:text-destructive">
@@ -394,7 +402,7 @@ export default function Settings() {
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {configuration.maintenanceAreas.map((area) => (
+            {(configuration.maintenanceAreas || []).map((area) => (
               <Badge key={area} variant="secondary" className="gap-2">
                 {area}
                 <button onClick={() => handleRemoveArea(area)} className="hover:text-destructive">
